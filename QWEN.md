@@ -184,6 +184,60 @@ Um arquivo .htaccess adequado para o Laravel foi configurado com:
 - Cache de conteúdo estático
 - Proteção contra injeção de cabeçalhos HTTP
 
+## Resolução de Erros Comuns em Produção
+
+### Erro 403 (Forbidden) em Produção
+
+Se ocorrer erro 403 ao acessar o site em produção, verifique os seguintes itens:
+
+#### 1. Permissões de Diretórios
+
+Execute os seguintes comandos para definir as permissões corretas:
+
+```bash
+# Definir permissões para diretórios e arquivos
+find /path/to/your/project -type d -exec chmod 755 {} \;
+find /path/to/your/project -type f -exec chmod 644 {} \;
+
+# Garantir permissões de escrita para diretórios necessários
+chmod -R 775 storage/
+chmod -R 775 bootstrap/cache/
+
+# Definir o proprietário correto (substitua www-data pelo usuário do servidor)
+chown -R www-data:www-data storage/
+chown -R www-data:www-data bootstrap/cache/
+```
+
+#### 2. Configuração do Virtual Host
+
+Certifique-se de que o virtual host do Apache permite sobrescrita:
+
+```apache
+<Directory "/path/to/your/project/public">
+    Options Indexes FollowSymLinks
+    AllowOverride All
+    Require all granted
+</Directory>
+```
+
+#### 3. Diretivas do .htaccess
+
+Verifique se o .htaccess na raiz e no diretório `public` estão configurados corretamente para produção, com as regras de reescrita adequadas.
+
+#### 4. Verifique o Error Log
+
+Consulte os logs de erro do Apache para obter mais detalhes:
+
+```bash
+tail -f /var/log/apache2/error.log
+```
+
+ou
+
+```bash
+tail -f /var/log/httpd/error_log
+```
+
 ## APIs de Consulta de CNPJ
 
 Para a integração com dados reais de empresas, o projeto utilizará o OpenCNPJ, uma API pública gratuita e sem limites de consultas.

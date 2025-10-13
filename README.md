@@ -8,6 +8,7 @@ Este é um sistema Laravel para consulta de dados de CNPJ (Cadastro Nacional da 
 - Design elegante com cores #111424 e #0EE57F
 - Consulta a múltiplas APIs (OpenCNPJ, CNPJ.WS, Brasil API)
 - Fallback automático entre APIs para maior confiabilidade
+- Exibição de inscrição estadual quando disponível
 - Layout profissional com espaçamento adequado
 - Exibição organizada de informações da empresa
 - Totalmente gratuito e com múltiplas opções de API

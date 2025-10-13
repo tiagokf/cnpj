@@ -240,41 +240,27 @@ tail -f /var/log/httpd/error_log
 
 ## APIs de Consulta de CNPJ
 
-O projeto agora suporta múltiplas APIs de consulta de CNPJ para maior confiabilidade e disponibilidade:
+O projeto atualmente suporta múltiplas APIs de consulta de CNPJ para maior confiabilidade e disponibilidade:
 
 ### Provedores Disponíveis
 
-#### 1. OpenCNPJ
-- **Descrição:** API gratuita e sem limites de consultas para dados de CNPJ
+#### 1. OpenCNPJ (fulviocanducci/opencnpj)
+- **Descrição:** Biblioteca PHP que consulta os dados via API da OpenCNPJ
 - **Características:** 
   - Dados da Receita Federal
   - Acesso direto às bases governamentais
   - Gratuito e sem limites de uso
-  - Sem necessidade de autenticação
+  - Não requer autenticação
 - **Vantagens:**
   - Não tem custos
   - Não tem limites de uso
   - Dados oficiais da Receita Federal
+  - Biblioteca bem estruturada e mantida
 - **Desvantagens:**
   - Pode ter disponibilidade limitada dependendo do volume de acesso
+- **URL da API:** https://api.opencnpj.org/
 
-#### 2. CNPJ.WS
-- **Descrição:** API especializada em consultas de CNPJ com dados atualizados
-- **Características:**
-  - Fornece dados detalhados atualizados diretamente da Receita Federal
-  - Disponibiliza informações sobre sócios/quadro societário
-  - Oferece endpoints tanto para uso público quanto pago
-- **Limitações de uso:**
-  - API pública: 3 consultas por minuto e 180 por hora
-  - Se ultrapassar 360 consultas por hora, é penalizado por 1 hora
-- **Vantagens:**
-  - Alta confiabilidade com dados atualizados
-  - Baixa latência de resposta
-- **Desvantagens:**
-  - Limites de uso na versão gratuita
-  - Para uso comercial ou mais intenso, é necessário plano pago
-
-#### 3. Brasil API
+#### 2. Brasil API
 - **Descrição:** API totalmente gratuita e de código aberto
 - **Características:**
   - Não requer autenticação
@@ -286,7 +272,20 @@ O projeto agora suporta múltiplas APIs de consulta de CNPJ para maior confiabil
   - Código aberto
 - **Desvantagens:**
   - Pode ter variação na disponibilidade em momentos de alta demanda
-  - Mantida pela comunidade
+- **URL da API:** https://brasilapi.com.br/api/cnpj/v1
+
+
+- **URL da API:** https://api.cnpj.ws/cnpj
+
+
+
+### Ordem de Preferência
+
+A implementação atual segue esta ordem de tentativa:
+
+1. OpenCNPJ (biblioteca oficial)
+2. Brasil API
+3. CNPJ.WS
 
 ### Implementação no Laravel
 
@@ -296,6 +295,7 @@ O projeto agora suporta múltiplas APIs de consulta de CNPJ para maior confiabil
 
 namespace App\Services;
 
+use Canducci\OpenCnpj\CnpjService as OpenCnpjServiceOriginal;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -303,7 +303,7 @@ class CnpjService
 {
     private const PROVIDERS = [
         'opencnpj' => [
-            'base_url' => 'https://opencnpj.com.br/api/v1.0',
+            'base_url' => 'https://api.opencnpj.org',
             'requires_auth' => false,
         ],
         'cnpjws' => [
@@ -314,55 +314,25 @@ class CnpjService
             'base_url' => 'https://brasilapi.com.br/api/cnpj/v1',
             'requires_auth' => false,
         ],
+        'sintegraws' => [
+            'base_url' => 'https://sintegraws.com.br/api/v1',
+            'requires_auth' => true, // Esta API normalmente requer autenticação
+        ],
     ];
-
-    public function getCompanyData(string $cnpj, string $provider = null): array
-    {
-        $cnpj = preg_replace('/[^0-9]/', '', $cnpj);
-        
-        if (!$this->isValidCnpj($cnpj)) {
-            return [
-                'success' => false,
-                'error' => 'CNPJ inválido',
-                'data' => null
-            ];
-        }
-
-        // Se nenhum provedor for especificado, tenta em ordem de preferência
-        $providersToTry = $provider ? [$provider] : ['opencnpj', 'cnpjws', 'brasilapi'];
-
-        foreach ($providersToTry as $providerName) {
-            if (!isset(self::PROVIDERS[$providerName])) {
-                continue;
-            }
-
-            try {
-                $result = $this->fetchFromProvider($cnpj, $providerName);
-                
-                if ($result['success']) {
-                    return [
-                        'success' => true,
-                        'data' => $result['data'],
-                        'provider' => $providerName
-                    ];
-                }
-            } catch (\\Exception $e) {
-                Log::warning("Falha ao consultar CNPJ na API {$providerName}: " . $e->getMessage());
-                continue; // Tenta o próximo provedor
-            }
-        }
-
-        return [
-            'success' => false,
-            'error' => 'Falha ao obter dados do CNPJ em todos os provedores disponíveis',
-            'data' => null,
-            'provider' => null
-        ];
-    }
 
     // ... demais métodos do serviço
 }
 ```
+
+### Inscrição Estadual
+
+O sistema agora também suporta a obtenção da inscrição estadual quando disponível nas APIs consultadas:
+
+- **Campo adicional:** `inscricao_estadual` 
+- **Visualização:** Exibido na seção de resultados da interface
+- **Suporte por provedor:** 
+  - OpenCNPJ: Suporte parcial (depende dos dados retornados)
+  - Brasil API: Suporte parcial (depende dos dados retornados)
 
 **Controller de CNPJ (app/Http/Controllers/CnpjController.php):**
 ```php

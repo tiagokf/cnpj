@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Canducci\OpenCnpj\CnpjService as OpenCnpjServiceOriginal;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -11,10 +12,6 @@ class CnpjService
         'opencnpj' => [
             'base_url' => 'https://opencnpj.com.br/api/v1.0',
             'requires_auth' => false,
-        ],
-        'cnpjws' => [
-            'base_url' => 'https://api.cnpj.ws/cnpj',
-            'requires_auth' => false, // Para versão pública
         ],
         'brasilapi' => [
             'base_url' => 'https://brasilapi.com.br/api/cnpj/v1',
@@ -35,7 +32,7 @@ class CnpjService
         }
 
         // Se nenhum provedor for especificado, tenta em ordem de preferência
-        $providersToTry = $provider ? [$provider] : ['opencnpj', 'cnpjws', 'brasilapi'];
+        $providersToTry = $provider ? [$provider] : ['opencnpj', 'brasilapi'];
 
         foreach ($providersToTry as $providerName) {
             if (!isset(self::PROVIDERS[$providerName])) {
@@ -84,62 +81,57 @@ class CnpjService
 
     private function fetchFromOpenCnpj(string $cnpj, array $config): array
     {
-        $response = Http::timeout(30)
-            ->get("{$config['base_url']}/{$cnpj}");
+        try {
+            $cnpjService = OpenCnpjServiceOriginal::create();
+            $response = $cnpjService->get($cnpj);
 
-        if (!$response->successful()) {
+            if (!$response->isValid()) {
+                return [
+                    'success' => false,
+                    'error' => $response->getException()->getMessage(),
+                    'data' => null
+                ];
+            }
+
+            $company = $response->getCompany();
+            $companyData = [
+                'cnpj' => $company->getCnpj(),
+                'razao_social' => $company->getLegalName(),
+                'nome_fantasia' => $company->getTradeName(),
+                'situacao' => $company->getStatus(),
+                'abertura' => $company->getStartDate(),
+                'cnae_principal' => [
+                    'codigo' => $company->getMainCnae(),
+                    'descricao' => '', // A biblioteca original não fornece descrição diretamente
+                ],
+                'natureza_juridica' => $company->getLegalNature(),
+                'porte' => $company->getCompanySize(),
+                'logradouro' => $company->getAddress(),
+                'numero' => $company->getNumber(),
+                'complemento' => $company->getComplement(),
+                'bairro' => $company->getNeighborhood(),
+                'municipio' => $company->getCity(),
+                'uf' => $company->getState(),
+                'cep' => $company->getZip(),
+                'telefone' => !empty($company->getPhones()) ? $company->getPhones()[0]->getNumber() ?? null : null,
+                'email' => $company->getEmail(),
+                'inscricao_estadual' => null, // A biblioteca original não fornece inscrição estadual diretamente
+            ];
+
+            return [
+                'success' => true,
+                'data' => $this->normalizeData($companyData, 'opencnpj')
+            ];
+        } catch (\Exception $e) {
             return [
                 'success' => false,
-                'error' => 'Falha na API OpenCNPJ',
+                'error' => $e->getMessage(),
                 'data' => null
             ];
         }
-
-        $data = $response->json();
-        
-        // Verifica se a resposta é válida
-        if (isset($data['error'])) {
-            return [
-                'success' => false,
-                'error' => $data['error'],
-                'data' => null
-            ];
-        }
-
-        return [
-            'success' => true,
-            'data' => $this->normalizeData($data, 'opencnpj')
-        ];
     }
 
-    private function fetchFromCnpjWs(string $cnpj, array $config): array
-    {
-        $response = Http::timeout(30)
-            ->get("{$config['base_url']}/{$cnpj}");
 
-        if (!$response->successful()) {
-            return [
-                'success' => false,
-                'error' => 'Falha na API CNPJ.WS',
-                'data' => null
-            ];
-        }
-
-        $data = $response->json();
-        
-        if (isset($data['error'])) {
-            return [
-                'success' => false,
-                'error' => $data['error'],
-                'data' => null
-            ];
-        }
-
-        return [
-            'success' => true,
-            'data' => $this->normalizeData($data, 'cnpjws')
-        ];
-    }
 
     private function fetchFromBrasilApi(string $cnpj, array $config): array
     {
@@ -170,6 +162,8 @@ class CnpjService
         ];
     }
 
+
+
     private function normalizeData(array $data, string $source): array
     {
         $normalized = [];
@@ -197,6 +191,7 @@ class CnpjService
                     'cep' => $data['cep'] ?? null,
                     'telefone' => $data['telefone'] ?? null,
                     'email' => $data['email'] ?? null,
+                    'inscricao_estadual' => $data['inscricao_estadual'] ?? null,
                 ];
                 break;
                 
@@ -222,6 +217,7 @@ class CnpjService
                     'cep' => $data['company']['cep'] ?? null,
                     'telefone' => $data['company']['telefone'] ?? null,
                     'email' => $data['company']['email'] ?? null,
+                    'inscricao_estadual' => $data['company']['inscricao_estadual'] ?? null,
                 ];
                 break;
                 
@@ -247,6 +243,33 @@ class CnpjService
                     'cep' => $data['cep'] ?? null,
                     'telefone' => !empty($data['ddd_telefone_1']) ? $data['ddd_telefone_1'] : (!empty($data['ddd_telefone_2']) ? $data['ddd_telefone_2'] : null),
                     'email' => $data['email'] ?? null,
+                    'inscricao_estadual' => $data['inscricao_estadual'] ?? null,
+                ];
+                break;
+                
+            case 'sintegraws':
+                $normalized = [
+                    'cnpj' => $data['cnpj'] ?? null,
+                    'razao_social' => $data['razao_social'] ?? null,
+                    'nome_fantasia' => $data['nome_fantasia'] ?? null,
+                    'situacao' => $data['situacao'] ?? null,
+                    'abertura' => $data['abertura'] ?? null,
+                    'cnae_principal' => [
+                        'codigo' => $data['cnae_principal']['codigo'] ?? null,
+                        'descricao' => $data['cnae_principal']['descricao'] ?? null,
+                    ],
+                    'natureza_juridica' => $data['natureza_juridica'] ?? null,
+                    'porte' => $data['porte'] ?? null,
+                    'logradouro' => $data['logradouro'] ?? null,
+                    'numero' => $data['numero'] ?? null,
+                    'complemento' => $data['complemento'] ?? null,
+                    'bairro' => $data['bairro'] ?? null,
+                    'municipio' => $data['municipio'] ?? null,
+                    'uf' => $data['uf'] ?? null,
+                    'cep' => $data['cep'] ?? null,
+                    'telefone' => $data['telefone'] ?? null,
+                    'email' => $data['email'] ?? null,
+                    'inscricao_estadual' => $data['inscricoes_estaduais'][0]['inscricao_estadual'] ?? null,
                 ];
                 break;
         }

@@ -180,6 +180,10 @@
                     <div class="info-value" id="nome-fantasia">Nome Fantasia</div>
                 </div>
                 <div class="info-item">
+                    <div class="info-label">Inscrição Estadual</div>
+                    <div class="info-value" id="inscricao-estadual">Não informada</div>
+                </div>
+                <div class="info-item">
                     <div class="info-label">Status</div>
                     <div class="info-value" id="status">Ativa</div>
                 </div>
@@ -300,6 +304,7 @@
                             document.getElementById('cnpj-value').textContent = formatCNPJ(cnpj);
                             document.getElementById('razao-social').textContent = data.data.razao_social || 'Não informado';
                             document.getElementById('nome-fantasia').textContent = data.data.nome_fantasia || 'Não informado';
+                            document.getElementById('inscricao-estadual').textContent = data.data.inscricao_estadual || 'Não informada';
                             document.getElementById('status').textContent = data.data.situacao || 'Não informado';
                             document.getElementById('data-abertura').textContent = formatDate(data.data.abertura) || 'Não informado';
                             document.getElementById('cnae').textContent = data.data.cnae_principal?.descricao || 'Não informado';

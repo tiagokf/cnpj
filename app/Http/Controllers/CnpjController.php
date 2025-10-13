@@ -3,29 +3,37 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use Canducci\\OpenCnpj\\CnpjService;
-use Illuminate\\Http\\Request;
+use App\Services\CnpjService;
+use Illuminate\Http\Request;
 
 class CnpjController extends Controller
 {
-    public function search(Request $request, CnpjService $cnpjService)
+    public function __construct(
+        protected CnpjService $cnpjService
+    ) {}
+
+    public function search(Request $request, string $cnpj)
     {
         $request->validate([
-            'cnpj' => 'required|string'
+            'provider' => 'nullable|string|in:opencnpj,cnpjws,brasilapi'
         ]);
 
-        $response = $cnpjService->get($request->cnpj);
+        $result = $this->cnpjService->getCompanyData(
+            $cnpj,
+            $request->provider
+        );
 
-        if ($response->isValid()) {
+        if ($result['success']) {
             return response()->json([
                 'success' => true,
-                'data' => $response->getCompany()->toArray()
+                'data' => $result['data'],
+                'provider' => $result['provider']
             ]);
         }
 
         return response()->json([
             'success' => false,
-            'message' => $response->getException()->getMessage()
+            'message' => $result['error']
         ], 400);
     }
 }

@@ -240,64 +240,169 @@ tail -f /var/log/httpd/error_log
 
 ## APIs de Consulta de CNPJ
 
-Para a integração com dados reais de empresas, o projeto utilizará o OpenCNPJ, uma API pública gratuita e sem limites de consultas.
+O projeto agora suporta múltiplas APIs de consulta de CNPJ para maior confiabilidade e disponibilidade:
 
-### OpenCNPJ (fulviocanducci/opencnpj)
+### Provedores Disponíveis
 
+#### 1. OpenCNPJ
 - **Descrição:** API gratuita e sem limites de consultas para dados de CNPJ
 - **Características:** 
   - Dados da Receita Federal
   - Acesso direto às bases governamentais
   - Gratuito e sem limites de uso
   - Sem necessidade de autenticação
-  - Dados estruturados em modelos PHP
 - **Vantagens:**
   - Não tem custos
   - Não tem limites de uso
   - Dados oficiais da Receita Federal
-  - Integração direta com Laravel via Service Provider
-  - Não requer CAPTCHA
 - **Desvantagens:**
   - Pode ter disponibilidade limitada dependendo do volume de acesso
-  - Pode ser mais lento que APIs comerciais devido à natureza gratuita e sem limites
+
+#### 2. CNPJ.WS
+- **Descrição:** API especializada em consultas de CNPJ com dados atualizados
+- **Características:**
+  - Fornece dados detalhados atualizados diretamente da Receita Federal
+  - Disponibiliza informações sobre sócios/quadro societário
+  - Oferece endpoints tanto para uso público quanto pago
+- **Limitações de uso:**
+  - API pública: 3 consultas por minuto e 180 por hora
+  - Se ultrapassar 360 consultas por hora, é penalizado por 1 hora
+- **Vantagens:**
+  - Alta confiabilidade com dados atualizados
+  - Baixa latência de resposta
+- **Desvantagens:**
+  - Limites de uso na versão gratuita
+  - Para uso comercial ou mais intenso, é necessário plano pago
+
+#### 3. Brasil API
+- **Descrição:** API totalmente gratuita e de código aberto
+- **Características:**
+  - Não requer autenticação
+  - Mantida pela comunidade
+  - Oferece diversos serviços além de CNPJ
+- **Vantagens:**
+  - Totalmente gratuita
+  - Não requer token ou chave de acesso
+  - Código aberto
+- **Desvantagens:**
+  - Pode ter variação na disponibilidade em momentos de alta demanda
+  - Mantida pela comunidade
 
 ### Implementação no Laravel
 
-**Instalação:**
-```bash
-composer require fulviocanducci/opencnpj
+**Serviço de CNPJ (app/Services/CnpjService.php):**
+```php
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+class CnpjService
+{
+    private const PROVIDERS = [
+        'opencnpj' => [
+            'base_url' => 'https://opencnpj.com.br/api/v1.0',
+            'requires_auth' => false,
+        ],
+        'cnpjws' => [
+            'base_url' => 'https://api.cnpj.ws/cnpj',
+            'requires_auth' => false,
+        ],
+        'brasilapi' => [
+            'base_url' => 'https://brasilapi.com.br/api/cnpj/v1',
+            'requires_auth' => false,
+        ],
+    ];
+
+    public function getCompanyData(string $cnpj, string $provider = null): array
+    {
+        $cnpj = preg_replace('/[^0-9]/', '', $cnpj);
+        
+        if (!$this->isValidCnpj($cnpj)) {
+            return [
+                'success' => false,
+                'error' => 'CNPJ inválido',
+                'data' => null
+            ];
+        }
+
+        // Se nenhum provedor for especificado, tenta em ordem de preferência
+        $providersToTry = $provider ? [$provider] : ['opencnpj', 'cnpjws', 'brasilapi'];
+
+        foreach ($providersToTry as $providerName) {
+            if (!isset(self::PROVIDERS[$providerName])) {
+                continue;
+            }
+
+            try {
+                $result = $this->fetchFromProvider($cnpj, $providerName);
+                
+                if ($result['success']) {
+                    return [
+                        'success' => true,
+                        'data' => $result['data'],
+                        'provider' => $providerName
+                    ];
+                }
+            } catch (\\Exception $e) {
+                Log::warning("Falha ao consultar CNPJ na API {$providerName}: " . $e->getMessage());
+                continue; // Tenta o próximo provedor
+            }
+        }
+
+        return [
+            'success' => false,
+            'error' => 'Falha ao obter dados do CNPJ em todos os provedores disponíveis',
+            'data' => null,
+            'provider' => null
+        ];
+    }
+
+    // ... demais métodos do serviço
+}
 ```
 
-**Exemplo de Controller para Consulta:**
+**Controller de CNPJ (app/Http/Controllers/CnpjController.php):**
 ```php
 <?php
 
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use Canducci\\OpenCnpj\\CnpjService;
+use App\Services\CnpjService;
 use Illuminate\\Http\\Request;
 
 class CnpjController extends Controller
 {
-    public function search(Request $request, CnpjService $cnpjService)
+    public function __construct(
+        protected CnpjService $cnpjService
+    ) {}
+
+    public function search(Request $request)
     {
         $request->validate([
-            'cnpj' => 'required|string'
+            'cnpj' => 'required|string',
+            'provider' => 'nullable|string|in:opencnpj,cnpjws,brasilapi'
         ]);
 
-        $response = $cnpjService->get($request->cnpj);
+        $result = $this->cnpjService->getCompanyData(
+            $request->cnpj,
+            $request->provider
+        );
 
-        if ($response->isValid()) {
+        if ($result['success']) {
             return response()->json([
                 'success' => true,
-                'data' => $response->getCompany()->toArray()
+                'data' => $result['data'],
+                'provider' => $result['provider']
             ]);
         }
 
         return response()->json([
             'success' => false,
-            'message' => $response->getException()->getMessage()
+            'message' => $result['error']
         ], 400);
     }
 }
@@ -307,15 +412,10 @@ class CnpjController extends Controller
 ```php
 use App\\Http\\Controllers\\CnpjController;
 
-Route::get('/cnpj/{cnpj}', [CnpjController::class, 'search']);
+Route::get('/api/cnpj/{cnpj}', [CnpjController::class, 'search']);
 ```
 
-### Outras Opções Consideradas
-
-#### CNPJ Grátis (jansenfelipe/cnpj-gratis)
-- Consulta direta à Receita Federal
-- Requer resolução de CAPTCHA, o que limita o uso automatizado
-- Não recomendado para uso em produção devido à limitação de CAPTCHA
+A implementação permite fallback automático entre APIs caso uma falhe, escolha de provedor preferencial e formatação consistente dos dados independentemente da origem.
 
 ## Comandos Personalizados
 

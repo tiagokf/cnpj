@@ -298,8 +298,8 @@
                         if (data.success) {
                             // Preenche os campos com os dados recebidos
                             document.getElementById('cnpj-value').textContent = formatCNPJ(cnpj);
-                            document.getElementById('razao-social').textContent = data.data.nome || 'Não informado';
-                            document.getElementById('nome-fantasia').textContent = data.data.fantasia || 'Não informado';
+                            document.getElementById('razao-social').textContent = data.data.razao_social || 'Não informado';
+                            document.getElementById('nome-fantasia').textContent = data.data.nome_fantasia || 'Não informado';
                             document.getElementById('status').textContent = data.data.situacao || 'Não informado';
                             document.getElementById('data-abertura').textContent = formatDate(data.data.abertura) || 'Não informado';
                             document.getElementById('cnae').textContent = data.data.cnae_principal?.descricao || 'Não informado';

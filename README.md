@@ -6,10 +6,11 @@ Este é um sistema Laravel para consulta de dados de CNPJ (Cadastro Nacional da 
 
 - Interface de busca de CNPJ responsiva e moderna
 - Design elegante com cores #111424 e #0EE57F
-- Consulta direta à base de dados da Receita Federal via OpenCNPJ
+- Consulta a múltiplas APIs (OpenCNPJ, CNPJ.WS, Brasil API)
+- Fallback automático entre APIs para maior confiabilidade
 - Layout profissional com espaçamento adequado
 - Exibição organizada de informações da empresa
-- Totalmente gratuito e sem limites de uso
+- Totalmente gratuito e com múltiplas opções de API
 
 ## Tecnologias Utilizadas
 
@@ -17,6 +18,8 @@ Este é um sistema Laravel para consulta de dados de CNPJ (Cadastro Nacional da 
 - [Filament](https://filamentphp.com/) - Framework admin
 - [Tailwind CSS](https://tailwindcss.com/) - Framework CSS
 - [OpenCNPJ](https://opencnpj.org/) - API de consulta de CNPJ
+- [CNPJ.WS](https://cnpj.ws/) - API de consulta de CNPJ
+- [Brasil API](https://brasilapi.com.br/) - API de consulta de CNPJ
 - [PHP](https://php.net/) 8.2+
 
 ## Instalação

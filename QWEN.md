@@ -173,6 +173,17 @@ A logo da aplicação está armazenada em:
 - Formato: PNG
 - Utilização: Exibida na página inicial de busca de CNPJ
 
+## Arquivo .htaccess
+
+Um arquivo .htaccess adequado para o Laravel foi configurado com:
+
+- Reescrita de URLs amigáveis
+- Proteção contra acesso direto a arquivos sensíveis
+- Cabeçalhos de segurança
+- Compressão de conteúdo
+- Cache de conteúdo estático
+- Proteção contra injeção de cabeçalhos HTTP
+
 ## APIs de Consulta de CNPJ
 
 Para a integração com dados reais de empresas, o projeto utilizará o OpenCNPJ, uma API pública gratuita e sem limites de consultas.

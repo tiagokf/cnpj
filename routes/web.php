@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CnpjController;
 use App\Livewire\Settings\Appearance;
 use App\Livewire\Settings\Password;
 use App\Livewire\Settings\Profile;
@@ -10,6 +11,8 @@ use Laravel\Fortify\Features;
 Route::get('/', function () {
     return view('cnpj-search');
 })->name('home');
+
+Route::get('/api/cnpj/{cnpj}', [CnpjController::class, 'search']);
 
 Route::view('dashboard', 'dashboard')
     ->middleware(['auth', 'verified'])

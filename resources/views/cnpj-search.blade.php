@@ -280,24 +280,83 @@
                 e.target.value = value;
             });
             
-            // Simulação do envio do formulário
+            // Envio do formulário para a API real
             document.getElementById('cnpj-search-form').addEventListener('submit', function(e) {
                 e.preventDefault();
                 
-                const cnpj = cnpjInput.value;
+                const cnpj = cnpjInput.value.replace(/\D/g, ''); // Remove formatação para envio
+                const btn = document.querySelector('.btn-primary');
+                const originalText = btn.textContent;
                 
-                // Simula uma requisição (você pode adicionar aqui o código para enviar os dados para o backend)
-                console.log('Buscando dados para CNPJ:', cnpj);
+                // Mostra estado de carregamento
+                btn.textContent = 'Buscando...';
+                btn.disabled = true;
                 
-                // Mostra a seção de resultados (em uma implementação real, você atualizaria com dados reais)
-                document.getElementById('results-section').classList.remove('hidden');
-                
-                // Atualiza o CNPJ exibido no resultado
-                document.getElementById('cnpj-value').textContent = cnpj;
-                
-                // "Rola" para a seção de resultados
-                document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+                fetch(`/api/cnpj/${cnpj}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Preenche os campos com os dados recebidos
+                            document.getElementById('cnpj-value').textContent = formatCNPJ(cnpj);
+                            document.getElementById('razao-social').textContent = data.data.nome || 'Não informado';
+                            document.getElementById('nome-fantasia').textContent = data.data.fantasia || 'Não informado';
+                            document.getElementById('status').textContent = data.data.situacao || 'Não informado';
+                            document.getElementById('data-abertura').textContent = formatDate(data.data.abertura) || 'Não informado';
+                            document.getElementById('cnae').textContent = data.data.cnae_principal?.descricao || 'Não informado';
+                            document.getElementById('natureza-juridica').textContent = data.data.natureza_juridica || 'Não informado';
+                            document.getElementById('porte-empresa').textContent = data.data.porte || 'Não informado';
+                            
+                            // Endereço
+                            document.getElementById('logradouro').textContent = data.data.logradouro || 'Não informado';
+                            document.getElementById('numero').textContent = data.data.numero || 'Não informado';
+                            document.getElementById('complemento').textContent = data.data.complemento || 'Não informado';
+                            document.getElementById('bairro').textContent = data.data.bairro || 'Não informado';
+                            document.getElementById('cidade').textContent = data.data.municipio || 'Não informado';
+                            document.getElementById('estado').textContent = data.data.uf || 'Não informado';
+                            document.getElementById('cep').textContent = formatCEP(data.data.cep) || 'Não informado';
+                            
+                            // Contato
+                            document.getElementById('telefone').textContent = data.data.telefone || 'Não informado';
+                            document.getElementById('email').textContent = data.data.email || 'Não informado';
+                            
+                            // Mostra a seção de resultados
+                            document.getElementById('results-section').classList.remove('hidden');
+                            
+                            // "Rola" para a seção de resultados
+                            document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+                        } else {
+                            alert('Erro na consulta: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Erro:', error);
+                        alert('Ocorreu um erro ao buscar os dados do CNPJ. Por favor, tente novamente.');
+                    })
+                    .finally(() => {
+                        // Restaura o estado do botão
+                        btn.textContent = originalText;
+                        btn.disabled = false;
+                    });
             });
+            
+            // Funções auxiliares
+            function formatCNPJ(cnpj) {
+                if (cnpj.length !== 14) return cnpj;
+                return cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+            }
+            
+            function formatDate(dateString) {
+                if (!dateString) return '';
+                const date = new Date(dateString);
+                return date.toLocaleDateString('pt-BR');
+            }
+            
+            function formatCEP(cep) {
+                if (!cep) return '';
+                const cleanCEP = cep.replace(/\D/g, '');
+                if (cleanCEP.length !== 8) return cleanCEP;
+                return cleanCEP.replace(/^(\d{5})(\d{3})$/, '$1-$2');
+            }
         });
     </script>
 </body>

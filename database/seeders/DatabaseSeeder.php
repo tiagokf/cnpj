@@ -19,6 +19,8 @@ class DatabaseSeeder extends Seeder
             'password' => 'Seguro@2020',
         ]);
 
-        $this->call(AnalyticsSeeder::class);
+        if (app()->environment('testing')) {
+            $this->call(AnalyticsSeeder::class);
+        }
     }
 }

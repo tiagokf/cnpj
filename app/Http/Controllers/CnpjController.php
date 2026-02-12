@@ -14,26 +14,18 @@ class CnpjController extends Controller
 
     public function search(Request $request, string $cnpj)
     {
-        $request->validate([
-            'provider' => 'nullable|string|in:opencnpj,cnpjws,brasilapi'
-        ]);
-
-        $result = $this->cnpjService->getCompanyData(
-            $cnpj,
-            $request->provider
-        );
+        $result = $this->cnpjService->getCompanyData($cnpj);
 
         if ($result['success']) {
             return response()->json([
                 'success' => true,
                 'data' => $result['data'],
-                'provider' => $result['provider']
             ]);
         }
 
         return response()->json([
             'success' => false,
-            'message' => $result['error']
+            'message' => $result['error'],
         ], 400);
     }
 }

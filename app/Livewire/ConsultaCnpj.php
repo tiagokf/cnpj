@@ -11,9 +11,6 @@ class ConsultaCnpj extends Component
     public $result = null;
     public $error = null;
     public $loading = false;
-    
-    // Opção para escolher qual API usar
-    public $apiSelecionada = 'ambos'; // 'cnpjws', 'brasilapi', 'ambos'
 
     protected $cnpjService;
 
@@ -38,10 +35,10 @@ class ConsultaCnpj extends Component
 
         $this->loading = true;
         $this->error = null;
-        
+
         try {
-            $this->result = $this->cnpjService->consultaCnpj($this->cnpjInput, $this->apiSelecionada);
-            
+            $this->result = $this->cnpjService->consultaCnpj($this->cnpjInput);
+
             if (!$this->result['sucesso']) {
                 $this->error = $this->result['mensagem'];
             }

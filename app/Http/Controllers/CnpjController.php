@@ -14,7 +14,7 @@ class CnpjController extends Controller
 
     public function search(Request $request, string $cnpj)
     {
-        $result = $this->cnpjService->getCompanyData($cnpj);
+        $result = $this->cnpjService->getCompanyData($cnpj, source: 'api');
 
         if ($result['success']) {
             return response()->json([

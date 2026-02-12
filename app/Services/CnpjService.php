@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\CnpjQuery;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -10,11 +11,13 @@ class CnpjService
     private const BASE_URL = 'https://publica.cnpj.ws/cnpj';
     private const COMMERCIAL_URL = 'https://comercial.cnpj.ws/cnpj';
 
-    public function getCompanyData(string $cnpj): array
+    public function getCompanyData(string $cnpj, string $source = 'web'): array
     {
         $cnpj = preg_replace('/[^0-9]/', '', $cnpj);
 
         if (!$this->isValidCnpj($cnpj)) {
+            $this->logQuery($cnpj, null, $source, false, 'CNPJ inválido', 0);
+
             return [
                 'success' => false,
                 'error' => 'CNPJ inválido',
@@ -22,15 +25,24 @@ class CnpjService
             ];
         }
 
+        $start = microtime(true);
+
         try {
             $data = $this->fetchFromCnpjWs($cnpj);
+            $responseTimeMs = (int) round((microtime(true) - $start) * 1000);
+            $normalized = $this->normalizeData($data);
+
+            $this->logQuery($cnpj, $normalized['razao_social'] ?? null, $source, true, null, $responseTimeMs);
 
             return [
                 'success' => true,
-                'data' => $this->normalizeData($data),
+                'data' => $normalized,
             ];
         } catch (\Exception $e) {
+            $responseTimeMs = (int) round((microtime(true) - $start) * 1000);
             Log::error("Falha ao consultar CNPJ na API CNPJ-WS: {$e->getMessage()}");
+
+            $this->logQuery($cnpj, null, $source, false, $e->getMessage(), $responseTimeMs);
 
             return [
                 'success' => false,
@@ -40,11 +52,13 @@ class CnpjService
         }
     }
 
-    public function consultaCnpj(string $cnpj): array
+    public function consultaCnpj(string $cnpj, string $source = 'web'): array
     {
         $cnpj = preg_replace('/[^0-9]/', '', $cnpj);
 
         if (!$this->isValidCnpj($cnpj)) {
+            $this->logQuery($cnpj, null, $source, false, 'CNPJ inválido', 0);
+
             return [
                 'sucesso' => false,
                 'mensagem' => 'CNPJ inválido',
@@ -52,22 +66,50 @@ class CnpjService
             ];
         }
 
+        $start = microtime(true);
+
         try {
             $data = $this->fetchFromCnpjWs($cnpj);
+            $responseTimeMs = (int) round((microtime(true) - $start) * 1000);
+            $normalized = $this->normalizeData($data);
+
+            $this->logQuery($cnpj, $normalized['razao_social'] ?? null, $source, true, null, $responseTimeMs);
 
             return [
                 'sucesso' => true,
-                'dados' => $this->normalizeData($data),
+                'dados' => $normalized,
                 'mensagem' => null,
             ];
         } catch (\Exception $e) {
+            $responseTimeMs = (int) round((microtime(true) - $start) * 1000);
             Log::error("Falha ao consultar CNPJ na API CNPJ-WS: {$e->getMessage()}");
+
+            $this->logQuery($cnpj, null, $source, false, $e->getMessage(), $responseTimeMs);
 
             return [
                 'sucesso' => false,
                 'mensagem' => 'Falha ao obter dados do CNPJ: ' . $e->getMessage(),
                 'dados' => null,
             ];
+        }
+    }
+
+    private function logQuery(string $cnpj, ?string $razaoSocial, string $source, bool $success, ?string $errorMessage, int $responseTimeMs): void
+    {
+        try {
+            CnpjQuery::create([
+                'cnpj' => $cnpj,
+                'razao_social' => $razaoSocial,
+                'source' => $source,
+                'success' => $success,
+                'error_message' => $errorMessage,
+                'response_time_ms' => $responseTimeMs,
+                'ip_address' => request()->ip(),
+                'user_id' => auth()->id(),
+                'queried_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning("Falha ao registrar consulta CNPJ: {$e->getMessage()}");
         }
     }
 
